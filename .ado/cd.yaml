@@ -1,0 +1,256 @@
+name: $(BuildDefinitionName)_$(date:yyyyMMdd)$(rev:.r)-$(RunName)
+
+trigger: none
+
+pr: none
+
+parameters:
+  - name: MTTAlias
+    type: string
+    default: petender
+  - name: azureSubscription
+    type: string
+    default: MTTDemoDeploySC-petender
+  - name: Location
+    type: string
+    default: eastus
+  - name: Email
+    default: petender@microsoft.com
+
+variables:
+  - name: RunName
+    value: "${{parameters.MTTAlias}}"
+  - name: RGName 
+    value: "MTTDDRG-TOLLBOOTH"
+  - name: dotnetFunctionZipPath
+    value: $(Build.ArtifactStagingDirectory)/dotnet
+  - name: nodeFunctionZipPath
+    value: $(Build.ArtifactStagingDirectory)/node
+  - name: pipelineName
+    value: $(Build.DefinitionName)
+  - name: recipientEmail
+    value: "${{parameters.Email}}" 
+
+stages:
+  - stage: Infra
+    jobs:
+      - job: Bicep
+        steps:
+          - checkout: self
+
+          - task: AzurePowerShell@5
+            displayName: 'Email - Deployment Kicked Off'
+            inputs:
+              azureSubscription:  'MTTDemoDeploySC-petender' #subscription to connect to the LogicApp
+              resourceGroupName: 'ATTDemoDeployRG' #resource group where the LogicApp is deployed
+              azurePowerShellVersion: 'LatestVersion' #required to use the latest version of Azure PowerShell
+              ScriptType: 'filePath'
+              ScriptPath: $(System.DefaultWorkingDirectory)/Email/.ado/job_started_email.ps1  #can't handle indentation for @""@ in PS Inline
+              ScriptArguments: '-BuildDefinitionName:$(pipelineName) -To:$(recipientEmail)'
+              # the ScriptArguments is used to pass the parameters to the PS script
+
+          - task: PowerShell@2
+            displayName: 'Generate Random String for Naming Resources'
+            
+            inputs:
+              targetType: 'inline'
+              script: |
+                # Your PowerShell script here
+                
+                #generate random string for naming resources using lowercase and digits only
+                do {
+                $randomName = -join ((97..122) + (48..57) | Get-Random -Count 12 | % {[char]$_})
+                } while ($randomName -notmatch '^[a-zA-Z][a-zA-Z0-9-]{6,50}[a-zA-Z0-9]$')
+
+                Write-Host "##vso[task.setvariable variable=genrandom;]$randomName"
+                Write-Host $genrandom
+
+
+          - task: AzureCLI@2
+            name: deployBicep
+            inputs:
+              azureSubscription: ${{ parameters.azureSubscription }}
+              scriptType: "pscore"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                az group create --location ${{parameters.Location}} --name $(RGName)
+                $out = $(az deployment group create -f ./TollBooth/.azure/main.bicep -g $(RGName) --parameters namingConvention=tb$(genrandom) location=${{parameters.Location}} -o json --query properties.outputs) | ConvertFrom-Json
+                $out.PSObject.Properties | ForEach-Object {
+                  $keyname = $_.Name
+                  $value = $_.Value.value
+                  echo "##vso[task.setvariable variable=$keyname;isOutput=true]$value"
+                }
+
+  - stage: BuildDotNet
+    dependsOn:
+    variables:
+      dotnetSdkVersion: "6.0.x"
+      #dotnetFuncPath: "./FastCar-TollBooth/src/FastCarTollBooth.Functions/TollBooth"
+      buildConfiguration: "Release"
+    jobs:
+      - job: build_dotnet
+        displayName: build the dotnet functions
+        steps:
+          - checkout: self
+
+          - task: UseDotNet@2
+            displayName: "Use .NET SDK $(dotnetSdkVersion)"
+            inputs:
+              version: "$(dotnetSdkVersion)"
+
+          - task: DotNetCoreCLI@2
+            displayName: "Restore project dependencies"
+            inputs:
+              command: "restore"
+              projects: "TollBooth/.src/**/*.csproj"
+
+          - task: DotNetCoreCLI@2
+            displayName: "Build the project - $(buildConfiguration)"
+            inputs:
+              command: "build"
+              arguments: "--no-restore --configuration $(buildConfiguration)"
+              projects: "TollBooth/.src/**/*.csproj"
+
+          - task: DotNetCoreCLI@2
+            displayName: "Publish the project - $(buildConfiguration)"
+            inputs:
+              command: "publish"
+              projects: "TollBooth/.src/**/*.csproj"
+              publishWebProjects: false
+              arguments: "--no-build --configuration $(buildConfiguration) --output $(dotnetFunctionZipPath)"
+              zipAfterPublish: true
+
+          - publish: $(dotnetFunctionZipPath)
+            artifact: dotnet
+
+  - stage: BuildNode
+    dependsOn:
+    variables:
+      nodePath: "./TollBooth/.src/FastCarDev.SavePlateDataFunction"
+      nodeZipName: "savePlateDataFunction.zip"
+    jobs:
+      - job: build_node
+        displayName: build the node functions
+        pool:
+          vmImage: "ubuntu-latest"
+          demands:
+            - npm
+        steps:
+          - checkout: self
+
+          - task: Npm@1
+            displayName: "Run npm install"
+            inputs:
+              workingDir: $(nodePath)
+              verbose: false
+
+          - task: ArchiveFiles@2
+            displayName: "Archive files"
+            inputs:
+              rootFolderOrFile: "$(System.DefaultWorkingDirectory)/$(nodePath)"
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: $(nodeFunctionZipPath)/$(nodeZipName)
+              replaceExistingArchive: true
+
+          - upload: $(nodeFunctionZipPath)/$(nodeZipName)
+            artifact: node
+
+  - stage: DeployCode
+    displayName: Deploy code
+    dependsOn: [Infra, BuildDotNet, BuildNode]
+    condition: succeeded()
+    variables:
+      processImageFnName: $[stageDependencies.Infra.Bicep.outputs['deployBicep.ProcessImageFnName']]
+      savePlateFnName: $[stageDependencies.Infra.Bicep.outputs['deployBicep.SavePlateFnName']]
+      imageUploadAppName: $[stageDependencies.Infra.Bicep.outputs['deployBicep.UploadImageWebAppName']]
+    jobs:
+      - deployment: Deploy
+        environment: Demo
+        displayName: Deploy
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: AzureFunctionApp@2
+                  displayName: "Azure Function Deploy: ProcessImage"
+                  inputs:
+                    connectedServiceNameARM: ${{ parameters.azureSubscription }}
+                    appType: functionApp
+                    appName: $(processImageFnName)
+                    package: "$(Pipeline.Workspace)/dotnet/TollBooth.zip"
+
+                - task: AzureWebApp@1
+                  displayName: "Azure Web App: Upload Image"
+                  inputs:
+                    azureSubscription: ${{ parameters.azureSubscription }}
+                    appType: webAppLinux
+                    appName: $(imageUploadAppName)
+                    package: "$(Pipeline.Workspace)/dotnet/FastCarDev.UploadImage.zip"
+
+                - task: AzureFunctionApp@2
+                  displayName: "Azure Function Deploy: SavePlateData"
+                  inputs:
+                    connectedServiceNameARM: ${{ parameters.azureSubscription }}
+                    appType: functionApp
+                    appName: $(savePlateFnName)
+                    package: "$(Pipeline.Workspace)/node/*.zip"
+
+  - stage: EventSubs
+    dependsOn: [Infra, DeployCode]
+    jobs:
+      - job: Bicep
+        variables:
+          processImageFnName: $[stageDependencies.Infra.Bicep.outputs['deployBicep.ProcessImageFnName']]
+          savePlateFnName: $[stageDependencies.Infra.Bicep.outputs['deployBicep.SavePlateFnName']]
+          eventGridTopicName: $[stageDependencies.Infra.Bicep.outputs['deployBicep.EventGridTopicName']]
+          dataLakeAccountName: $[stageDependencies.Infra.Bicep.outputs['deployBicep.StorageAccName']]
+        steps:
+          - checkout: self
+          - task: AzureCLI@2
+            name: deployBicep
+            inputs:
+              azureSubscription: ${{ parameters.azureSubscription }}
+              scriptType: "pscore"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo $(processImageFnName)
+                $key = az functionapp keys list -g $(RGName) -n $(processImageFnName) --query systemKeys.blobs_extension --output tsv
+                az deployment group create -f ./TollBooth/.azure/eventgridsub.bicep -g $(RGName) `
+                  --parameters dataLakeAccountName=$(dataLakeAccountName) processImageFnName=$(processImageFnName) `
+                    eventGridTopicName=$(eventGridTopicName) savePlateFnName=$(savePlateFnName) `
+                    blobExtensionKey=$key
+
+  - stage: Email
+    displayName: DeploymentSuccessEmail
+    dependsOn: [Infra, BuildDotNet, DeployCode, EventSubs]
+    condition: succeeded()
+    jobs:
+      - job: Email
+                  
+        steps:
+            - task: AzurePowerShell@5
+              displayName: 'Email - Deployment Completed'
+              inputs:
+                azureSubscription:  'MTTDemoDeploySC-petender' #subscription to connect to the LogicApp
+                resourceGroupName: 'ATTDemoDeployRG' #resource group where the LogicApp is deployed
+                azurePowerShellVersion: 'LatestVersion' #required to use the latest version of Azure PowerShell
+                ScriptType: 'filePath'
+                ScriptPath: $(System.DefaultWorkingDirectory)/TollBooth/.ado/tollbooth_completed_email.ps1  #can't handle indentation for @""@ in PS Inline
+                ScriptArguments: '-BuildDefinitionName:$(pipelineName) -To:$(recipientEmail)'  #needs quotes because split characters
+                # the ScriptArguments is used to pass the parameters to the PS script, and should contain all the parameters used by the Azure Resources, which
+                # the MTT should know about (e.g. ACRName, IP-address, Passwords,...)
+
+  - stage: FailedDeployment
+    dependsOn: [Infra, BuildDotNet, DeployCode, Email]
+    condition: failed()  # This job runs only when the previous job fails
+    jobs: 
+      - job: DeleteResourcesOnFailure
+        
+        steps:
+        - template: ../../Email/emailtemplates/delete_resources_onfailure-steps.yml # the ../.. is used to go back to the root of the repo, and then go to the Email folder
+          parameters:
+            azureSubscription: ${{parameters.azureSubscription}}
+            RGName: ${{variables.RGName}}
+            pipelineName: ${{variables.pipelineName}}
+            recipientEmail: ${{variables.recipientEmail}}

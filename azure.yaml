@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+
+name: toll-booth
+metadata:
+  template: azd-init@1.11.0
+services:
+  fastcardev-saveplatedatafunction:
+    project: src/FastCarDev.SavePlateDataFunction
+    host: function
+    language: js
+  fastcardev-uploadimage:
+    project: src/FastCarDev.UploadImage
+    host: appservice
+    language: dotnet
+  fastcardev-tollboothfunction:
+    project: src/FastCarDev.TollBoothFunction/TollBooth
+    host: function
+    language: dotnet
+hooks:
+  postdeploy:
+    shell: pwsh
+    interactive: true
+    run: |
+      # Expected Environment Variables:
+      # DATALAKE_STORAGE_NAME, PROCESS_IMAGE_FN_NAME, SAVEPLATE_FN_NAME, EVENTGRID_TOPIC_NAME, RG_NAME
+
+      $key = az functionapp keys list -g $env:RG_Name -n $env:PROCESS_IMAGE_FN_NAME --query systemKeys.blobs_extension --output tsv
+
+      az deployment group create -f infra/eventgridsub.bicep -g $env:RG_Name --parameters `
+      dataLakeAccountName=$env:DATALAKE_STORAGE_NAME `
+      processImageFnName=$env:PROCESS_IMAGE_FN_NAME `
+      eventGridTopicName=$env:EVENTGRID_TOPIC_NAME `
+      savePlateFnName=$env:SAVEPLATE_FN_NAME `
+      blobExtensionKey=$key

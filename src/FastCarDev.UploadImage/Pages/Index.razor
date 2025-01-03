@@ -1,0 +1,101 @@
+﻿@page "/"
+@using Azure.Storage.Blobs;
+@using Azure.Identity;
+@using System;
+@using System.IO;
+@using Azure.Storage.Blobs.Specialized;
+@using Microsoft.Extensions.Configuration;
+
+<h3>Generate Tollbooth traffic</h3>
+
+<button class="btn btn-primary" @onclick="UploadImages">Upload Images</button>
+
+<div>
+    <img src="./tollbooth.jpg" alt="Tollbooth" />
+</div>
+
+<div>
+    <p style="font-weight: bold; background-color: @statusBackgroundColor; color: @statusColor">@uploadStatus</p>
+</div>
+
+<div>
+    <h4><strong>Number of cars processed...: @uploadCount </strong></h4>
+</div>
+
+@code {
+    [Inject]
+    private IConfiguration? _configuration { get; set; }
+    private string? uploadStatus;
+    private BlobServiceClient? blobServiceClient;
+    private string? statusBackgroundColor;
+    private string? statusColor;
+    private string? _storageAccName;
+    private string? _blobContainerName;
+    private int uploadCount = 0;
+
+    protected override void OnInitialized()
+    {
+
+        _storageAccName = _configuration?.GetValue<string>("AzureStorage:Name");
+        _blobContainerName = _configuration?.GetValue<string>("AzureStorage:ContainerName");
+        blobServiceClient = new BlobServiceClient(
+            new Uri($"https://{_storageAccName}.blob.core.windows.net"),
+            new DefaultAzureCredential());        
+    }
+
+    private async Task UploadImages()
+    {
+        string wwwRootPath = "wwwroot";
+        string folderPath = "licenseplates"; // Subfolder within wwwroot
+        var containerClient = blobServiceClient?.GetBlobContainerClient(_blobContainerName);
+        string folderFullPath = Path.Combine(wwwRootPath, folderPath);
+        Random random = new Random();
+
+        if (Directory.Exists(folderFullPath))
+        {
+            var filesToUpload = Directory.GetFiles(folderFullPath);
+
+            try
+            {
+                for (int i = 0; i < 50; i++) // Repeat the upload process 50 times to generate 500 cycles
+                {
+                    foreach (var filePath in filesToUpload)
+                    {
+                        using (FileStream fs = File.OpenRead(filePath))
+                        {
+                            string blobName = Path.GetFileName(filePath);
+                            string uniqueBlobName = $"{Guid.NewGuid()}{Path.GetExtension(blobName)}"; // Create a unique blob name
+
+                            BlobClient blobClient = containerClient.GetBlobClient(uniqueBlobName);
+
+                            // Upload the file with the unique name
+                            await blobClient.UploadAsync(fs, true);
+
+                            // Increment the upload count
+                            uploadCount++;
+
+                            // Notify Blazor to re-render the component
+                            StateHasChanged();
+                        }
+                    }
+                }
+
+                uploadStatus = "Files Successfully Uploaded to Azure Blob Storage.";
+                statusBackgroundColor = "green";
+                statusColor = "white";
+            }
+            catch (Exception ex)
+            {
+                uploadStatus = "Error: " + ex.Message;
+                statusBackgroundColor = "red";
+                statusColor = "white";
+            }
+        }
+        else
+        {
+            uploadStatus = "Folder not found: " + folderFullPath;
+            statusBackgroundColor = "red";
+            statusColor = "white";
+        }
+    }
+}
