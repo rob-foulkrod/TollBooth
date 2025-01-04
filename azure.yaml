@@ -32,3 +32,8 @@ hooks:
       eventGridTopicName=$env:EVENTGRID_TOPIC_NAME `
       savePlateFnName=$env:SAVEPLATE_FN_NAME `
       blobExtensionKey=$key
+
+  postup:
+    shell: pwsh
+    interactive: true
+    run: ./infra/hooks/postup.ps1

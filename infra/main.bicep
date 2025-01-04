@@ -8,6 +8,10 @@ param environmentName string
 @minLength(1)
 @description('Primary location for all resources')
 param location string
+
+@description('Enable telemetry for the deployment. Set to false to disable telemetry in the main.parameters.json file.')
+param telemetryEnabled bool = true
+
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
 
 
@@ -62,4 +66,4 @@ output PROCESS_IMAGE_FN_NAME string = resources.outputs.ProcessImageFnName
 output SAVEPLATE_FN_NAME string = resources.outputs.SavePlateFnName
 output EVENTGRID_TOPIC_NAME string = resources.outputs.EventGridTopicName
 output RG_NAME string = rg.name
-
+output TELEMETRY_ENABLED bool = telemetryEnabled

@@ -10,6 +10,12 @@
     },
     "principalId": {
       "value": "${AZURE_PRINCIPAL_ID}"
+    },
+    "telemetryEnabled": {
+      "value": "true",
+      "metadata": {
+        "description": "Set to true to support the project and report the deployment. This will be written to the env file as TELEMETRY_ENABLED"
+      }
     }
   }
 }
