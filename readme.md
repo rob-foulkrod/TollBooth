@@ -66,7 +66,7 @@ For detailed step-by-step instructions, refer to the [TollBooth.md](#file:tollbo
 
 ## Contributing
 
-Contributions to enhance the demo scenario are welcome. Please submit the appropriate issues and pull requests
+Contributions to enhance the demo scenario are welcome. Please submit the appropriate issues and pull requests.
 
 ## License
 
