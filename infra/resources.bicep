@@ -1,5 +1,5 @@
 @description('MTT Alias for unique resource names')
-@maxLength(25)
+@maxLength(13)
 param namingConvention string = 'mtt'
 
 @description('Location for all resources')
@@ -7,34 +7,36 @@ param location string = resourceGroup().location
 
 
 param tags object
+var abbrs = loadJsonContent('./abbreviations.json')
 
-
-var dataLakeAccountName = '${namingConvention}lake'
+// 24 character restriction, and keeping the original suffix requires trimming the namingConvention to 11 characters
+var dataLakeAccountName = '${abbrs.dataLakeStoreAccounts}${take(namingConvention, 11)}tbdatalake'
 var dataLakeConnectionSecretName = 'dataLakeConnectionString'
 var dataLakeContainers = [
   'images'
   'export'
 ]
-var cosmosDbAccountName = '${namingConvention}cosmosdb'
+var cosmosDbAccountName = '${abbrs.documentDBDatabaseAccounts}${namingConvention}cosmosdb'
 var cosmosDbAuthKeySecretName = 'cosmosDBAuthorizationKey'
 var cosmosDbDatabaseId = 'LicensePlates'
 var cosmosDbContainerProcessed = 'Processed'
 var cosmosDbContainerManual = 'NeedsManualReview'
-var tollBoothFunctionAppName = '${namingConvention}tbfunctions'
-var tollBoothFunctionsHostingPlanName = '${namingConvention}tbfunctionsplan'
-var tollBoothEventsFunctionAppName = '${namingConvention}tbevents'
-var tollBoothEventsHostingPlanName = '${namingConvention}tbeventsplan'
-var imageUploadPlanName = '${namingConvention}tbimageuploadplan'
-var imageUploadWebAppName = '${namingConvention}tbimageuploadapp'
-var appInsightsName = '${namingConvention}tbappinsights'
-var workspaceName = '${namingConvention}tbworkspace'
-var eventGridTopicName = '${namingConvention}tbeventgridtopic'
+var tollBoothFunctionAppName = '${abbrs.webSitesFunctions}${namingConvention}tbfunctions'
+var tollBoothFunctionsHostingPlanName = '${abbrs.webServerFarms}${namingConvention}tbfunctions'
+var tollBoothEventsFunctionAppName = '${abbrs.webSitesFunctions}${namingConvention}tbevents'
+var tollBoothEventsHostingPlanName = '${abbrs.webServerFarms}${namingConvention}tbevents'
+var imageUploadPlanName = '${abbrs.webServerFarms}${namingConvention}tbimageupload'
+var imageUploadWebAppName = '${abbrs.webSitesAppService}${namingConvention}tbimageupload'
+var appInsightsName = '${abbrs.insightsComponents}${namingConvention}tbappinsights'
+var workspaceName = '${abbrs.operationalInsightsWorkspaces}${namingConvention}'
+var eventGridTopicName = '${abbrs.eventGridDomainsTopics}${namingConvention}tbeventgridtopic'
 var eventGridTopicKeySecretName = 'eventGridTopicKey'
 var cosmosDbConnectionStringSecretName = 'cosmosDbConnectionString'
-var computerVisionName = '${namingConvention}tbcomputervision'
+var computerVisionName = '${abbrs.cognitiveServicesAccounts}${namingConvention}tbcomputervision'
 var computerVisionSecretName = 'computerVisionApiKey'
-var keyVaultName = '${namingConvention}tbkeyvault'
-var logicAppName = '${namingConvention}tblogicapp'
+var keyVaultName = '${abbrs.keyVaultVaults}${namingConvention}'
+var logicAppName = '${abbrs.logicWorkflows}${namingConvention}'
+
 
 resource keyVault 'Microsoft.KeyVault/vaults@2019-09-01' = {
   name: keyVaultName
