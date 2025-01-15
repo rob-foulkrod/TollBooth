@@ -62,7 +62,7 @@ After deployment, you can demonstrate the following:
 3. **Store Data**: The extracted data will be stored in Azure CosmosDB.
 4. **Monitor Metrics**: Use Application Insights to monitor live metrics and performance of the application.
 
-For detailed step-by-step instructions, refer to the [TollBooth.md](#file:tollbooth.md-context) file.
+For detailed step-by-step instructions, refer to the [TollBooth.md](./Demoguide/tollbooth.md) file.
 
 ## Contributing
 
