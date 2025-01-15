@@ -26,8 +26,8 @@ The TollBooth demo scenario includes the following components:
 
 The architecture of the TollBooth application is illustrated in the following diagrams:
 
-![Tollbooth Architecture Diagram](./TOLLBOOTH/tollbooth-architecture-overview.png)
-![Tollbooth Architecture Flowchart](./TOLLBOOTH/tollbooth-architecture-flowchart.png)
+![Tollbooth Architecture Diagram](./Demoguide/TOLLBOOTH/tollbooth-architecture-overview.png)
+![Tollbooth Architecture Flowchart](./Demoguide/TOLLBOOTH/tollbooth-architecture-flowchart.png)
 
 ## Deployment
 
