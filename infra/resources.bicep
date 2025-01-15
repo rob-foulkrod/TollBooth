@@ -10,7 +10,7 @@ param tags object
 var abbrs = loadJsonContent('./abbreviations.json')
 
 // 24 character restriction, and keeping the original suffix requires trimming the namingConvention to 11 characters
-var dataLakeAccountName = '${abbrs.dataLakeStoreAccounts}${take(namingConvention, 11)}tbdatalake'
+var dataLakeAccountName = '${abbrs.dataLakeStoreAccounts}${take(namingConvention, 11)}lake'
 var dataLakeConnectionSecretName = 'dataLakeConnectionString'
 var dataLakeContainers = [
   'images'
@@ -22,13 +22,13 @@ var cosmosDbDatabaseId = 'LicensePlates'
 var cosmosDbContainerProcessed = 'Processed'
 var cosmosDbContainerManual = 'NeedsManualReview'
 var tollBoothFunctionAppName = '${abbrs.webSitesFunctions}${namingConvention}tbfunctions'
-var tollBoothFunctionsHostingPlanName = '${abbrs.webServerFarms}${namingConvention}tbfunctions'
+var tollBoothFunctionsHostingPlanName = '${abbrs.webServerFarms}${namingConvention}tbfunctionsplan'
 var tollBoothEventsFunctionAppName = '${abbrs.webSitesFunctions}${namingConvention}tbevents'
-var tollBoothEventsHostingPlanName = '${abbrs.webServerFarms}${namingConvention}tbevents'
-var imageUploadPlanName = '${abbrs.webServerFarms}${namingConvention}tbimageupload'
-var imageUploadWebAppName = '${abbrs.webSitesAppService}${namingConvention}tbimageupload'
+var tollBoothEventsHostingPlanName = '${abbrs.webServerFarms}${namingConvention}tbeventsplan'
+var imageUploadPlanName = '${abbrs.webServerFarms}${namingConvention}tbimageuploadplan'
+var imageUploadWebAppName = '${abbrs.webSitesAppService}${namingConvention}tbimageuploadapp'
 var appInsightsName = '${abbrs.insightsComponents}${namingConvention}tbappinsights'
-var workspaceName = '${abbrs.operationalInsightsWorkspaces}${namingConvention}'
+var workspaceName = '${abbrs.operationalInsightsWorkspaces}${namingConvention}tbworkspace'
 var eventGridTopicName = '${abbrs.eventGridDomainsTopics}${namingConvention}tbeventgridtopic'
 var eventGridTopicKeySecretName = 'eventGridTopicKey'
 var cosmosDbConnectionStringSecretName = 'cosmosDbConnectionString'
