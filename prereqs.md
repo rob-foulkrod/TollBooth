@@ -1,0 +1,3 @@
+- Current version of Node.js
+- .NET 6 SDK
+- powershell version 7 (pwsh)
