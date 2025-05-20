@@ -1,4 +1,4 @@
-using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using TollBooth.Models;
 
@@ -6,47 +6,51 @@ namespace TollBooth
 {
     public class ProcessImage
     {
-        private static HttpClient _client;
+        private readonly IHttpClientFactory _httpClientFactory;
 
-        [FunctionName("ProcessImage")]
-        public async Task Run(
-            [BlobTrigger("images/{name}", Source = BlobTriggerSource.EventGrid, Connection = "dataLakeConnection")]byte[] incomingPlate, 
-            string name, ILogger log)
+        public ProcessImage(IHttpClientFactory httpClientFactory)
         {
-            log.LogInformation($"Function triggered");
+            _httpClientFactory = httpClientFactory;
+        }
+
+        [Function("ProcessImage")]
+        public async Task Run(
+            [BlobTrigger("images/{name}", Connection = "dataLakeConnection")] byte[] incomingPlate,
+            string name, FunctionContext context)
+        {
+            var logger = context.GetLogger<ProcessImage>();
+            logger.LogInformation($"Function triggered");
             string licensePlateText;
-            // Reuse the HttpClient across calls as much as possible so as not to exhaust all available sockets on the server on which it runs.
-            _client = _client ?? new HttpClient();
+            // Get HttpClient from factory
+            var client = _httpClientFactory.CreateClient();
 
             try
             {
                 if (incomingPlate != null)
                 {
-                    log.LogInformation($"Processing {name}");                    
+                    logger.LogInformation($"Processing {name}");
 
-                    licensePlateText = await new FindLicensePlateText(log, _client).GetLicensePlate(incomingPlate);
+                    licensePlateText = await new FindLicensePlateText(logger, client).GetLicensePlate(incomingPlate);
 
-                    log.LogInformation($"Plate is {licensePlateText}");
+                    logger.LogInformation($"Plate is {licensePlateText}");
                     // Send the details to Event Grid.
-                    await new SendToEventGrid(log, _client).SendLicensePlateData(new LicensePlateData()
+                    await new SendToEventGrid(logger, client).SendLicensePlateData(new LicensePlateData()
                     {
                         FileName = name,
                         LicensePlateText = licensePlateText,
                         TimeStamp = DateTime.UtcNow
                     });
 
-                    log.LogInformation($"Finished processing. Detected the following license plate: {licensePlateText}");
+                    logger.LogInformation($"Finished processing. Detected the following license plate: {licensePlateText}");
                 }
 
-                log.LogInformation("No image was provided. Exiting function.");
+                logger.LogInformation("No image was provided. Exiting function.");
             }
             catch (Exception ex)
             {
-                log.LogError(ex.Message);
+                logger.LogError(ex.Message);
                 throw;
             }
-
-
         }
     }
 }
