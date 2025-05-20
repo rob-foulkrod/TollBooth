@@ -308,7 +308,7 @@ resource tollBoothFunctionApp 'Microsoft.Web/sites@2020-09-01' = {
       appSettings: [
         {
           name: 'FUNCTIONS_WORKER_RUNTIME'
-          value: 'dotnet'
+          value: 'dotnet-isolated'
         }
         {
           name: 'AzureWebJobsStorage'
@@ -463,7 +463,7 @@ resource imageUploadWebApp 'Microsoft.Web/sites@2021-01-15' = {
     serverFarmId: imageUploadPlan.id
     httpsOnly: true
     siteConfig: {
-      linuxFxVersion: 'DOTNETCORE|6.0'
+      linuxFxVersion: 'DOTNETCORE|8.0'
       appSettings: [
         {
           name: 'AzureStorage__Name'
