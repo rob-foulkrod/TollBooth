@@ -7,7 +7,7 @@ This repository contains the TollBooth Demo Application, designed to demonstrate
 To run this demo, ensure you have the following installed locally:
 
 - Current version of Node.js
-- .NET 6 SDK
+- .NET 8 SDK
 - powershell version 7 (pwsh)
 
 ## Overview
