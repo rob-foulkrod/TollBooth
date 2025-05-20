@@ -1,5 +1,8 @@
 # TollBooth MCT Demo Deploy Application
 
+> [!IMPORTANT]
+> **Project Recently Updated to .NET 8**: This project has been upgraded from .NET 6 to .NET 8, including migration of Azure Functions to the Isolated Worker Model. These updates were completed with assistance from GitHub Copilot.
+
 This repository contains the TollBooth Demo Application, designed to demonstrate Azure serverless technologies. The demo showcases how to process vehicle photos, extract license plate data, and store it in a highly available NoSQL data store on Azure CosmosDB.
 
 ## Prerequisites
