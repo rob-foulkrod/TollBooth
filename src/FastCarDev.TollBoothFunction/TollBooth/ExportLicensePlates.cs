@@ -1,54 +1,59 @@
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Azure.WebJobs;
-using Microsoft.Azure.WebJobs.Extensions.Http;
+using System.Net;
+using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 
 namespace TollBooth
 {
     public class ExportLicensePlates
     {
-        [FunctionName("ExportLicensePlates")]
-        public async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequest req,
-            ILogger log)
+        [Function("ExportLicensePlates")]
+        public async Task<HttpResponseData> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post")] HttpRequestData req,
+            FunctionContext context)
         {
+            var logger = context.GetLogger<ExportLicensePlates>();
             int exportedCount = 0;
-            log.LogInformation("Finding license plate data to export");
+            logger.LogInformation("Finding license plate data to export");
 
-            var databaseMethods = new DatabaseMethods(log);
+            var databaseMethods = new DatabaseMethods(logger);
             var licensePlates = await databaseMethods.GetLicensePlatesToExport();
             if (licensePlates.Any())
             {
-                log.LogInformation($"Retrieved {licensePlates.Count} license plates");
-                var fileMethods = new FileMethods(log);
+                logger.LogInformation($"Retrieved {licensePlates.Count} license plates");
+                var fileMethods = new FileMethods(logger);
                 var uploaded = await fileMethods.GenerateAndSaveCsv(licensePlates);
                 if (uploaded)
                 {
                     await databaseMethods.MarkLicensePlatesAsExported(licensePlates);
                     exportedCount = licensePlates.Count;
-                    log.LogInformation("Finished updating the license plates");
+                    logger.LogInformation("Finished updating the license plates");
                 }
                 else
                 {
-                    log.LogInformation(
+                    logger.LogInformation(
                         "Export file could not be uploaded. Skipping database update that marks the documents as exported.");
                 }
 
-                log.LogInformation($"Exported {exportedCount} license plates");
+                logger.LogInformation($"Exported {exportedCount} license plates");
             }
             else
             {
-                log.LogWarning("No license plates to export");
+                logger.LogWarning("No license plates to export");
             }
 
+            HttpResponseData response;
+            
             if (exportedCount == 0)
             {
-                return new NoContentResult();
+                response = req.CreateResponse(HttpStatusCode.NoContent);
             }
             else
             {
-                return new OkObjectResult($"Exported {exportedCount} license plates");
+                response = req.CreateResponse(HttpStatusCode.OK);
+                response.WriteString($"Exported {exportedCount} license plates");
             }
+
+            return response;
         }
     }
 }
