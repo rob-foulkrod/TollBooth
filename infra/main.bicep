@@ -23,6 +23,7 @@ var resourceToken = toLower(uniqueString(subscription().id, environmentName, loc
 //   tags: union(tags, { 'azd-service-name': <service name in azure.yaml> })
 var tags = {
   'azd-env-name': environmentName
+  'securityControl': 'ignore'
 }
 
 // Organize resources in a resource group
