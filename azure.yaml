@@ -26,13 +26,20 @@ hooks:
       # Expected Environment Variables:
       # DATALAKE_STORAGE_NAME, PROCESS_IMAGE_FN_NAME, SAVEPLATE_FN_NAME, EVENTGRID_TOPIC_NAME, RG_NAME
 
-      $key = az functionapp keys list -g $env:RG_Name -n $env:PROCESS_IMAGE_FN_NAME --query systemKeys.blobs_extension --output tsv
+      # populate the variables from azd env get-value
+      $DATALAKE_STORAGE_NAME = azd env get-value DATALAKE_STORAGE_NAME
+      $PROCESS_IMAGE_FN_NAME = azd env get-value PROCESS_IMAGE_FN_NAME
+      $SAVEPLATE_FN_NAME = azd env get-value SAVEPLATE_FN_NAME
+      $EVENTGRID_TOPIC_NAME = azd env get-value EVENTGRID_TOPIC_NAME
+      $RG_NAME = azd env get-value RG_NAME
 
-      az deployment group create -f infra/eventgridsub.bicep -g $env:RG_Name --parameters `
-      dataLakeAccountName=$env:DATALAKE_STORAGE_NAME `
-      processImageFnName=$env:PROCESS_IMAGE_FN_NAME `
-      eventGridTopicName=$env:EVENTGRID_TOPIC_NAME `
-      savePlateFnName=$env:SAVEPLATE_FN_NAME `
+      $key = az functionapp keys list -g $RG_NAME -n $PROCESS_IMAGE_FN_NAME --query systemKeys.blobs_extension --output tsv
+
+      az deployment group create -f infra/eventgridsub.bicep -g $RG_NAME --parameters `
+      dataLakeAccountName=$DATALAKE_STORAGE_NAME `
+      processImageFnName=$PROCESS_IMAGE_FN_NAME `
+      eventGridTopicName=$EVENTGRID_TOPIC_NAME `
+      savePlateFnName=$SAVEPLATE_FN_NAME `
       blobExtensionKey=$key
 
 
